@@ -1,0 +1,228 @@
+metadata:
+  title: Covid-19 Demo Using Blawx for Rules As Code
+  description: |
+    A web application which advises as to eligibility for testing and isolation
+    requirements on the basis of an encoding of the relevant rules in Blawx.com
+    
+    Prepared as part of a paper for the MIT Computational Law Report in 2020.
+  authors:
+    - name: Jason Morris
+      organization: Round Table Law
+  revision_date: 2020-06-08
+  comment: |
+    * I use the comment field to make a to-do list.
+---
+modules:
+  - docassemble.blawx.blawx3
+---
+objects:
+  - person: DAList.using(object_type=Individual, there_are_any = True, complete_attribute="complete")
+  - site: DAList.using(object_type=DAObject, complete_attribute="complete")
+  - reasoner: Blawx
+---
+mandatory: True
+code: |
+  # This is the control flow block
+  intro
+  person.gather()
+  for p in person:
+    other_people = [x for x in person if x is not p]
+    p.provides_care_to_list
+    p.close_physical_contact_with
+    p.direct_contacts_fluids_from
+    p.lives_with_list
+  site.gather()
+  answer = reasoner.ask('da_mit_clr_covid.blawx')
+---  
+code: |
+  if person[i].has_been_tested:
+    person[i].text_test_result
+  person[i].has_symptoms
+  person[i].returned_to_Alberta
+  person[i].has_known_exposure
+  person[i].complete = True
+---
+code: |
+  site[i].name
+  site[i].outbreak_site
+  site[i].resident_or_employee
+  site[i].complete = True
+---
+mandatory: True
+question: Your Results
+subquestion: |
+  Thank you for using this demonstration of the use of Blawx and it's Docassemble integration
+  for Rules as Code.
+
+  %for k,v in answer['answers'].items():
+  ## ${ value(value(v['instanceName'])) }
+  ${ value(value(v['instanceName'])) }
+  %if v['entitled_to_testing'] == 'true':
+  is
+  %else:
+  is not
+  %endif
+  entitled to Covid-19 testing.
+  
+  ${ value(value(v['instanceName'])) }
+  %if v['required_to_isolate_10'] == 'true':
+  is
+  %else:
+  is not
+  %endif
+  required to isolate for 10 days, or until symptoms resolve, whichever is sooner.
+  
+  ${ value(value(v['instanceName'])) }
+  %if v['required_to_isolate_14'] == 'true':
+  is
+  %else:
+  is not
+  %endif
+  required to isolate for 14 days.
+  
+  %endfor
+  
+---
+question: Do you want to tell me about another person?
+subquestion: |
+  You can have this system determine the isolation requirements and testing entitlements
+  for multiple poeple at the same time. In order to advise accurately, you must also
+  provide information about the following categories of people if they have tested
+  positive for corona virus:
+  
+  * people with whom they live
+  * people to whom they provide care
+  * people with whom they are in close contact
+  * people whose bodily fluids they have direct exposure to
+  
+  The system will ask you about all of the people individualy, and then will ask about
+  the relationships between the people.
+  
+  Do you want to provide information about another person?
+yesno: person.there_is_another
+---
+question: |
+  What is the ${ ordinal(i) } person's name?
+fields:
+  - First Name: person[i].name.first
+  - Last Name: person[i].name.last
+---
+question: |
+  Has ${ person[i] } received the result of a test for Covid-19?
+yesno: person[i].has_been_tested
+---
+question: |
+  What was the result of ${ person[i] }'s Covid-19 test?
+fields:
+  - Test Result: person[i].text_test_result
+    choices:
+      - Positive: positive
+      - Negative: negative
+---
+question: |
+  Is ${ person[i] } currently suffering any of the following symptoms?
+fields:
+  - Symptoms: person[i].has_symptoms
+    datatype: checkboxes
+    choices:
+      - "Fever": Fever
+      - "Cough (new cough or worsening chronic cough)": Cough
+      - "Shortness of breath or difficulty breathing (new or worsening)": Shortness_of_Breath
+      - "Runny nose": Runny_Nose
+      - "Stuffy nose": Stuffy_Nose
+      - "Sore throat": Sore_Throat
+      - "Painful swallowing": Painful_Swallowing
+      - "Headache": Headache
+      - "Chills": Chills
+      - "Muscle or joint aches": Muscle_Aches
+      - "Feeling unwell in general, or new fatigue or severe exhaustion": Exhaustion
+      - "Gastrointestinal symptoms (nausea, vomiting, diarrhea or unexplained loss of appetite)": GI_Problems
+      - "Loss of sense of smell or taste": Loss_of_Smell_or_Taste
+      - "Conjunctivitis, commonly known as pink eye": Conjunctivitis
+---
+question: |
+  Did ${ person[i] } recently return from outside of Alberta?
+yesno: person[i].returned_to_Alberta
+---
+question: |
+  Does ${ person[i] } have known exposure to Covid-19?
+yesno: person[i].has_known_exposure
+---
+question: Are there any relevant outbreak sites?
+subquestion: |
+  In order to provide accurate information about entitlement to testing, the system needs
+  to be aware of any workplaces or residences at which ${ person } is/are employees or
+  residents and where there has been an outbreak of Covid-19.
+  
+  Are there any relevant outbreak sites? 
+yesno: site.there_are_any
+---
+question: Are there any other relevant outbreak sites?
+yesno: site.there_is_another
+---
+question: What is the site called?
+fields:
+  - Name: site[i].name
+---
+question: Is there an outbreak of Covid-19 at ${ site[i] }?
+yesno: site[i].outbreak_site
+---
+question: Who works or lives at ${ site[i] }?
+fields:
+  - People: site[i].resident_or_employee
+    datatype: object_checkboxes
+    choices: person
+---
+question: Who does ${ person[i] } provide care to?
+fields:
+  - People: person[i].provides_care_to_list
+    datatype: object_checkboxes
+    choices: other_people
+---
+question: Who does ${ person[i] } live with?
+fields:
+  - People: person[i].lives_with_list
+    datatype: object_checkboxes
+    choices: other_people
+---
+question: Who does ${ person[i] } have close physical contact with?
+fields:
+  - People: person[i].close_physical_contact_with
+    datatype: object_checkboxes
+    choices: other_people
+---
+question: Who does ${ person[i] } have direct contact with the bodily fluids of?
+fields:
+  - People: person[i].direct_contacts_fluids_from
+    datatype: object_checkboxes
+    choices: other_people
+---
+question: Covid-19 Rules as Code Demonstration for MIT Computational Law Report
+subquestion: |
+  This interview is a demonstration of Rules as Code powered web applications
+  developed for a paper about [Blawx.com](https://www.blawx.com) in the
+  [MIT Computational Law Report](https://law.mit.edu).
+  
+  The source code for the encoding of the Covid-19 rules used in this application
+  is available at [GitHub](https://github.com/Blawx/mit-paper).
+  
+  Information about the Rules as Code development tool Blawx is avaialble at the
+  [Blawx website](https://www.blawx.com).
+  The Blawx software is open source and
+  [available on GitHub](https://github.com/Blawx/blawx).
+  
+  This interview is developed in Docassemble, using docassemble-blawx, a module
+  to allow you to use Blawx encodings to answer legal questions inside a
+  docassemble interview. Docassemble-blawx is also
+  [available on GitHub](https://github.com/Blawx/docassemble-blawx).
+  
+  This tool was developed using an encoding of the Covid-19 testing eligibility
+  and isolation requirements in the Province of Alberta in May of 2020. **It is
+  out of date, and should not be relied upon for any real-world purpose.**
+fields:
+  - I acknowledge that this tool is not for real-world use: intro
+    datatype: yesnowide
+validation code: |
+  if not intro:
+    validation_error("You may not proceed without acknowledging.")
+---
